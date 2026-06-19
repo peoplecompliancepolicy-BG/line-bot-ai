@@ -23,7 +23,7 @@ export async function getFaqEntries(): Promise<FaqEntry[]> {
   }
 
   // 2. ดึงข้อมูลจาก Google Sheets
-  const response = await fetch(SHEET_URL);
+  const response = await fetch(SHEET_URL!);
   if (!response.ok) {
     throw new Error(`Failed to load FAQ CSV (${response.status})`);
   }
