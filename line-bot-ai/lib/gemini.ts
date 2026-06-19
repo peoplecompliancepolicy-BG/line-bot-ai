@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { FaqEntry } from "./sheet";
 
 export const DEFAULT_REPLY = "ขออภัยค่ะ แอดมินยังไม่ทราบข้อมูลส่วนนี้ รอแอดมินตัวจริงมาตอบสักครู่นะคะ";
