@@ -20,7 +20,7 @@ export async function getFaqEntries(): Promise<FaqEntry[]> {
     return cache.entries;
   }
 
-  const response = await fetch(SHEET_URL);
+  const dataRows = rows.slice(1).filter((row) => row.some((cell) => cell?.trim().length > 0));
   if (!response.ok) {
     throw new Error(`Failed to load FAQ CSV (${response.status})`);
   }
