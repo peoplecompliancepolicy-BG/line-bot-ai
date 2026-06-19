@@ -13,6 +13,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "types": ["react", "react-dom"],
     "plugins": [
       {
         "name": "next"
@@ -24,8 +25,4 @@
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
-  },
-  "compilerOptions": {
-  "jsx": "preserve",
-  "types": ["react", "react-dom"] // เพิ่มบรรทัดนี้ลงไป
 }
