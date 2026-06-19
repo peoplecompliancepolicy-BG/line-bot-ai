@@ -16,29 +16,37 @@ if (!SHEET_URL) {
 
 export async function getFaqEntries(): Promise<FaqEntry[]> {
   const now = Date.now();
+
+  // 1. ตรวจสอบ Cache ก่อน
   if (cache && now - cache.timestamp < CACHE_TTL_MS) {
     return cache.entries;
   }
 
-  const dataRows = rows.slice(1).filter((row) => row.some((cell) => cell?.trim().length > 0));
+  // 2. ดึงข้อมูลจาก Google Sheets
+  const response = await fetch(SHEET_URL);
   if (!response.ok) {
     throw new Error(`Failed to load FAQ CSV (${response.status})`);
   }
 
+  // 3. อ่านข้อมูลและส่งให้ parseFaqCsv จัดการ
   const csvText = await response.text();
   const entries = parseFaqCsv(csvText);
 
+  // 4. บันทึกผลลง Cache
   cache = { timestamp: now, entries };
   return entries;
 }
 
-// ปรับปรุงฟังก์ชัน parse ให้ปลอดภัยขึ้น
 function parseFaqCsv(csvText: string): FaqEntry[] {
   const rows = parseCsvRows(csvText);
-  if (rows.length < 2) return []; // ถ้าไม่มีข้อมูลแถวถัดจาก Header ให้คืนค่าว่าง
+  if (!rows || rows.length < 2) return [];
 
   const header = rows[0].map((value) => normalizeText(value));
-  const dataRows = rows.slice(1).filter((row) => row.some((cell) => cell?.trim().length > 0));
+  
+  // กรองแถวที่ข้อมูลว่างเปล่าออก
+  const dataRows = rows.slice(1).filter((row) => 
+    row && row.some((cell) => cell?.trim().length > 0)
+  );
 
   const questionIndex = header.findIndex((v) => v.includes("question"));
   const answerIndex = header.findIndex((v) => v.includes("answer"));
@@ -55,4 +63,4 @@ function parseFaqCsv(csvText: string): FaqEntry[] {
   }));
 }
 
-// ... (เก็บฟังก์ชัน parseCsvRows, normalizeText, scoreFaqMatch ไว้เหมือนเดิม)
+// ... (เก็บฟังก์ชัน parseCsvRows, normalizeText, scoreFaqMatch ไว้เหมือนเดิมท้ายไฟล์)
