@@ -1,0 +1,12 @@
+// เปลี่ยนบรรทัดที่ 23 เป็นบรรทัดนี้ค่ะ
+const dataRows = rows.slice(1).filter((row) => row.some((cell) => cell?.trim().length > 0));
+
+  const response = await fetch(SHEET_URL);
+  if (!response.ok) {
+    throw new Error(`Failed to load FAQ CSV (${response.status})`);
+  }
+
+Bash
+git add .
+git commit -m "fix: add optional chaining to sheet parsing"
+git push -f origin main
