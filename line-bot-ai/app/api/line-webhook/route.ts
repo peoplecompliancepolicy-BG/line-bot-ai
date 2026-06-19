@@ -1,28 +1,37 @@
 import { validateSignature } from "@line/bot-sdk";
 
-// สำหรับการรับข้อความจาก LINE (รองรับทั้ง POST ของการรับข้อความ และ POST ของการ Verify)
 export async function POST(request: Request) {
+  // 1. รับค่า signature จาก header
+  const signature = request.headers.get("x-line-signature") ?? "";
+  
+  // 2. รับค่า body เป็นข้อความ (สำคัญ: ทำนอก if)
+  const body = await request.text();
+  
+  // 3. ดึงค่า secret
   const secret = process.env.LINE_CHANNEL_SECRET;
 
-  // บรรทัดนี้จะพ่นค่าออกมาใน Log (อย่าลืมเอาออกหลังจากใช้งานเสร็จนะคะ)
-  console.log("Secret length:", secret ? secret.length : "UNDEFINED");
-
+  // 4. เช็คว่า secret มีจริงไหม
   if (!secret) {
-    return new Response("Configuration Error", { status: 500 });
-  }
-  // ตรวจสอบ Signature
-  const isValid = validateSignature(body, secret, signature);
-
-  if (!isValid) {
-    console.error("Invalid signature attempt");
-    return new Response("Invalid signature", { status: 401 });
+    console.error("DEBUG: LINE_CHANNEL_SECRET is missing");
+    return new Response("Configuration Error: Missing Secret", { status: 500 });
   }
 
-  // ถ้าผ่านการตรวจสอบ ให้ตอบกลับ 200 ทันที
-  return new Response("OK", { status: 200 });
+  // 5. ตรวจสอบ Signature โดยใช้ตัวแปร body ที่ประกาศไว้ข้างบน
+  try {
+    const isValid = validateSignature(body, secret, signature);
+
+    if (!isValid) {
+      console.error("DEBUG: Signature verification failed");
+      return new Response("Invalid signature", { status: 401 });
+    }
+
+    return new Response("OK", { status: 200 });
+  } catch (err) {
+    console.error("DEBUG: Error in validateSignature", err);
+    return new Response("Internal Server Error", { status: 500 });
+  }
 }
 
-// เพิ่ม GET เพื่อป้องกัน Error หาก LINE มีการเช็คผ่าน URL ตรงๆ
 export async function GET() {
   return new Response("Webhook is active", { status: 200 });
 }
