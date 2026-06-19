@@ -51,4 +51,56 @@ function parseFaqCsv(csvText: string): FaqEntry[] {
   const updatedAtIndex = header.findIndex((v) => v.includes("date") || v.includes("updated"));
 
   return dataRows.map((row) => ({
-    question: row[questionIndex] ?? row[0] ??
+    question: row[questionIndex] ?? row[0] ?? "",
+    answer: row[answerIndex] ?? row[1] ?? "",
+    category: row[categoryIndex] ?? "",
+    tags: (row[tagsIndex] ?? "").split(/[,;\s]+/).filter(Boolean),
+    updated_at: row[updatedAtIndex] ?? "",
+  }));
+}
+
+function parseCsvRows(csvText: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < csvText.length; i += 1) {
+    const char = csvText[i];
+    const nextChar = csvText[i + 1];
+
+    if (inQuotes) {
+      if (char === '"') {
+        if (nextChar === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += char;
+      }
+      continue;
+    }
+    if (char === '"') { inQuotes = true; continue; }
+    if (char === ',') { row.push(field); field = ""; continue; }
+    if (char === '\r') continue;
+    if (char === '\n') {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+      continue;
+    }
+    field += char;
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows;
+}
+
+function normalizeText(text: string) {
+  return text.trim().toLowerCase().replace(/\s+/g, " ").replace(/[“”«»„‟]/g, '"');
+}
