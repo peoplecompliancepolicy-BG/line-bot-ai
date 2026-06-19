@@ -2,17 +2,14 @@ import { validateSignature } from "@line/bot-sdk";
 
 // สำหรับการรับข้อความจาก LINE (รองรับทั้ง POST ของการรับข้อความ และ POST ของการ Verify)
 export async function POST(request: Request) {
-  const signature = request.headers.get("x-line-signature") ?? "";
-  
-  // สำคัญ: ต้อง clone หรืออ่าน body ให้ถูกต้อง เพื่อไม่ให้ข้อมูลเพี้ยน
-  const body = await request.text();
   const secret = process.env.LINE_CHANNEL_SECRET;
 
-  if (!secret) {
-    console.error("LINE_CHANNEL_SECRET is missing");
-    return new Response("Internal Server Error", { status: 500 });
-  }
+  // บรรทัดนี้จะพ่นค่าออกมาใน Log (อย่าลืมเอาออกหลังจากใช้งานเสร็จนะคะ)
+  console.log("Secret length:", secret ? secret.length : "UNDEFINED");
 
+  if (!secret) {
+    return new Response("Configuration Error", { status: 500 });
+  }
   // ตรวจสอบ Signature
   const isValid = validateSignature(body, secret, signature);
 
