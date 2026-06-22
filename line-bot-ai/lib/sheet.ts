@@ -6,7 +6,6 @@ export type FaqEntry = {
   updated_at: string;
 };
 
-// --- ส่วนการตั้งค่าและ Cache ---
 const CACHE_TTL_MS = 60_000;
 let cache: { timestamp: number; entries: FaqEntry[] } | null = null;
 
@@ -15,7 +14,6 @@ if (!SHEET_URL) {
   throw new Error("Missing environment variable: SHEET_CSV_URL");
 }
 
-// --- ฟังก์ชันหลัก ---
 export async function getFaqEntries(): Promise<FaqEntry[]> {
   const now = Date.now();
   if (cache && now - cache.timestamp < CACHE_TTL_MS) {
@@ -34,9 +32,8 @@ export async function getFaqEntries(): Promise<FaqEntry[]> {
   return entries;
 }
 
-// --- ฟังก์ชันตัวช่วย (Helper Functions) ---
 function parseFaqCsv(csvText: string): FaqEntry[] {
-  const rows = parseCsvRows(csvText); // ตอนนี้จะมองเห็นแล้วค่ะ
+  const rows = parseCsvRows(csvText);
   if (!rows || rows.length < 2) return [];
 
   const header = rows[0].map((value) => normalizeText(value));
@@ -103,4 +100,43 @@ function parseCsvRows(csvText: string): string[][] {
 
 function normalizeText(text: string) {
   return text.trim().toLowerCase().replace(/\s+/g, " ").replace(/[“”«»„‟]/g, '"');
+}
+
+// --- ฟังก์ชันที่ต้อง Export เพื่อให้ route.ts เรียกใช้งานได้ ---
+export async function findFaqAnswer(question: string): Promise<FaqEntry | null> {
+  const entries = await getFaqEntries();
+  const normalizedQuestion = normalizeText(question);
+
+  const exactMatch = entries.find(
+    (entry) => normalizeText(entry.question) === normalizedQuestion
+  );
+  if (exactMatch) return exactMatch;
+
+  const scored = entries
+    .map((entry) => ({ entry, score: scoreFaqMatch(entry, normalizedQuestion) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  return scored.length > 0 ? scored[0].entry : null;
+}
+
+function scoreFaqMatch(entry: FaqEntry, normalizedQuestion: string): number {
+  let score = 0;
+  const normalizedQuestionText = normalizeText(entry.question);
+  const normalizedAnswerText = normalizeText(entry.answer);
+  const normalizedTagsText = normalizeText(entry.tags.join(" "));
+  const normalizedCategory = normalizeText(entry.category);
+
+  if (normalizedQuestionText.includes(normalizedQuestion)) score += 50;
+  if (normalizedAnswerText.includes(normalizedQuestion)) score += 20;
+  if (normalizedTagsText.includes(normalizedQuestion) || normalizedCategory.includes(normalizedQuestion)) score += 15;
+
+  const tokens = normalizedQuestion.split(/\s+/).filter(Boolean);
+  for (const token of tokens) {
+    if (normalizedQuestionText.includes(token)) score += 8;
+    if (normalizedAnswerText.includes(token)) score += 5;
+    if (normalizedTagsText.includes(token)) score += 4;
+    if (normalizedCategory.includes(token)) score += 3;
+  }
+  return score;
 }
