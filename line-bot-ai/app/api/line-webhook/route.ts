@@ -1,35 +1,54 @@
-import { validateSignature } from "@line/bot-sdk";
+import { validateSignature, WebhookEvent, Client } from "@line/bot-sdk";
+import { findFaqAnswer } from "@/lib/sheet"; // นำเข้าฟังก์ชันค้นหาคำตอบ
+
+const client = new Client({
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN!,
+});
 
 export async function POST(request: Request) {
-  // 1. รับค่า signature จาก header
   const signature = request.headers.get("x-line-signature") ?? "";
-  
-  // 2. รับค่า body เป็นข้อความ (สำคัญ: ทำนอก if)
   const body = await request.text();
-  
-  // 3. ดึงค่า secret
   const secret = process.env.LINE_CHANNEL_SECRET;
 
-  // 4. เช็คว่า secret มีจริงไหม
-  if (!secret) {
-    console.error("DEBUG: LINE_CHANNEL_SECRET is missing");
-    return new Response("Configuration Error: Missing Secret", { status: 500 });
+  if (!secret) return new Response("Configuration Error", { status: 500 });
+
+  if (!validateSignature(body, secret, signature)) {
+    return new Response("Invalid signature", { status: 401 });
   }
 
-  // 5. ตรวจสอบ Signature โดยใช้ตัวแปร body ที่ประกาศไว้ข้างบน
-  try {
-    const isValid = validateSignature(body, secret, signature);
+  const data = JSON.parse(body);
+  const events: WebhookEvent[] = data.events;
 
-    if (!isValid) {
-      console.error("DEBUG: Signature verification failed");
-      return new Response("Invalid signature", { status: 401 });
+  for (const event of events) {
+    if (event.type === "message" && event.message.type === "text") {
+      const replyToken = event.replyToken;
+      const userQuestion = event.message.text;
+
+      try {
+        // 1. ค้นหาคำตอบจาก Sheet
+        const faq = await findFaqAnswer(userQuestion);
+
+        // 2. เตรียมข้อความตอบกลับ
+        const replyText = faq 
+          ? faq.answer 
+          : "ขออภัยค่ะ พี่เติมสุขยังไม่มีข้อมูลส่วนนี้ สอบถามเพิ่มเติมได้ที่ฝ่าย HR นะคะ";
+
+        // 3. ส่งกลับไปที่ LINE
+        await client.replyMessage(replyToken, {
+          type: "text",
+          text: replyText,
+        });
+      } catch (error) {
+        console.error("Error processing FAQ:", error);
+        await client.replyMessage(replyToken, {
+          type: "text",
+          text: "ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผลคำตอบ",
+        });
+      }
     }
-
-    return new Response("OK", { status: 200 });
-  } catch (err) {
-    console.error("DEBUG: Error in validateSignature", err);
-    return new Response("Internal Server Error", { status: 500 });
   }
+
+  return new Response("OK", { status: 200 });
 }
 
 export async function GET() {

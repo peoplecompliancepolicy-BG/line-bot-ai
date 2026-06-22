@@ -1,12 +1,36 @@
-// เปลี่ยนบรรทัดที่ 23 เป็นบรรทัดนี้ค่ะ
-const dataRows = rows.slice(1).filter((row) => row.some((cell) => cell?.trim().length > 0));
+import { validateSignature } from "@line/bot-sdk";
 
-  const response = await fetch(SHEET_URL);
-  if (!response.ok) {
-    throw new Error(`Failed to load FAQ CSV (${response.status})`);
+// สำหรับการรับข้อความจาก LINE (รองรับทั้ง POST ของการรับข้อความ และ POST ของการ Verify)
+export async function POST(request: Request) {
+  const signature = request.headers.get("x-line-signature") ?? "";
+  
+  // สำคัญ: ต้อง clone หรืออ่าน body ให้ถูกต้อง เพื่อไม่ให้ข้อมูลเพี้ยน
+  const body = await request.text();
+  const secret = process.env.LINE_CHANNEL_SECRET;
+
+  if (!secret) {
+    console.error("LINE_CHANNEL_SECRET is missing");
+    return new Response("Internal Server Error", { status: 500 });
   }
 
-Bash
+  // ตรวจสอบ Signature
+  const isValid = validateSignature(body, secret, signature);
+
+  if (!isValid) {
+    console.error("Invalid signature attempt");
+    return new Response("Invalid signature", { status: 401 });
+  }
+
+  // ถ้าผ่านการตรวจสอบ ให้ตอบกลับ 200 ทันที
+  return new Response("OK", { status: 200 });
+}
+
+// เพิ่ม GET เพื่อป้องกัน Error หาก LINE มีการเช็คผ่าน URL ตรงๆ
+export async function GET() {
+  return new Response("Webhook is active", { status: 200 });
+}
+
+
 git add .
-git commit -m "fix: add optional chaining to sheet parsing"
+git commit -m "ข้อความอธิบายการแก้ไข"
 git push -f origin main
