@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
     try {
       const faq = await findFaqAnswer(userQuestion);
-      const replyText = faq?.answer ?? "ขออภัยค่ะ พี่เติมสุขยังไม่มีข้อมูลส่วนนี้ สอบถามเพิ่มเติมได้ที่ฝ่าย HR นะคะ";
+      const replyText = faq?.answer ?? "ขออภัยค่ะ ทีม HR จะติดต่อกลับไปโดยเร็วที่สุดค่ะ 🙏";
 
       await client.replyMessage(replyToken, {
         type: "text",
