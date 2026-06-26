@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { FaqEntry } from "./sheet";
 
-export const DEFAULT_REPLY = "ขออภัยค่ะ แอดมินยังไม่ทราบข้อมูลส่วนนี้ รอแอดมินตัวจริงมาตอบสักครู่นะคะ";
+export const DEFAULT_REPLY = "กรุณารอสักครู่ค่ะ ทีม HR จะติดต่อกลับไปโดยเร็วที่สุดค่ะ 🙏";
 
 // เปลี่ยนโมเดลเป็นรุ่นที่มีจริงและใช้งานได้ดีที่สุดในขณะนี้
 const GEMINI_MODEL = "gemini-1.5-flash"; 
