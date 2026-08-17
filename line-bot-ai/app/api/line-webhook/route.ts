@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     if (isGreeting) {
       await client.replyMessage(replyToken, {
         type: "text",
-        text: "สวัสดีค่ะ วันนี้ ต้องการให้ พี่ GPS ช่วยเหลือเรื่องอะไรคะ"
+        text: "สวัสดีค่ะ วันนี้ ต้องการให้ พี่ GPS ช่วยเหลือเรื่องอะไรคะ💙"
       });
       return; // จบการทำงานตรงนี้ ไม่ต้องส่งไปหา FAQ
     }
