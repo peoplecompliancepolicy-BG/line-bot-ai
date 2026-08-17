@@ -5,6 +5,9 @@ const client = new Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN!,
 });
 
+// สร้างตัวแปรเก็บเวลา 1 ชั่วโมง (อยู่นอกฟังก์ชันเพื่อให้จำค่าได้นานที่สุด)
+const userCooldowns = new Map<string, number>();
+
 export async function POST(request: Request) {
   const signature = request.headers.get("x-line-signature") ?? "";
   const body = await request.text();
@@ -22,29 +25,75 @@ export async function POST(request: Request) {
 
   const data = JSON.parse(body);
   
-  // เพิ่มการเช็คว่า data.events มีอยู่จริงไหม
   if (!data.events || !Array.isArray(data.events)) {
     return new Response("OK", { status: 200 });
   }
 
-  // ใช้ Promise.all เพื่อให้ประมวลผลพร้อมกันและไม่พลาดเหตุการณ์ใดเหตุการณ์หนึ่ง
   await Promise.all(data.events.map(async (event: WebhookEvent) => {
-    // สนใจเฉพาะ event ประเภท message และเป็น text
-    if (event.type !== "message" || event.message.type !== "text") {
-      return;
+    // กรองเฉพาะ event ประเภท message เท่านั้น
+    if (event.type !== "message") return;
+
+    const userId = event.source.userId;
+    const replyToken = event.replyToken;
+    const msg = event.message;
+
+    if (!userId) return;
+
+    // 1. ระบบเช็กการจำศีล 1 ชั่วโมง (Handover to HR)
+    if (userCooldowns.has(userId)) {
+      const lastHandoverTime = userCooldowns.get(userId)!;
+      const ONE_HOUR = 60 * 60 * 1000; // 1 ชั่วโมงในหน่วยมิลลิวินาที
+
+      if (Date.now() - lastHandoverTime < ONE_HOUR) {
+        // ถ้ายังไม่ครบ 1 ชั่วโมง ให้บอท "อ่านแล้วไม่ตอบ" ปล่อยให้ HR คุย
+        return; 
+      } else {
+        // ถ้าเกิน 1 ชั่วโมงแล้ว ลบชื่อออกจากระบบจำศีล
+        userCooldowns.delete(userId);
+      }
     }
 
-    const { replyToken } = event;
-    const userQuestion = event.message.text;
+    // 2. ระบบทักทาย (ดักจับ สติกเกอร์, รูปภาพ หรือ คำทักทายสั้นๆ)
+    let isGreeting = false;
+    if (msg.type === "image" || msg.type === "sticker") {
+      isGreeting = true;
+    } else if (msg.type === "text") {
+      const text = msg.text.toLowerCase();
+      // เช็กคำทักทาย (จำกัดความยาวไม่เกิน 20 ตัวอักษร เพื่อไม่ให้ไปบล็อกคำถามยาวๆ ของพนักงาน)
+      if (/(สวัสดี|สวสัดี|ดีจ้า|hello|hi)/.test(text) && text.length <= 20) {
+        isGreeting = true;
+      }
+    }
+
+    if (isGreeting) {
+      await client.replyMessage(replyToken, {
+        type: "text",
+        text: "สวัสดีค่ะ วันนี้ ต้องการให้ พี่ GPS ช่วยเหลือคะ"
+      });
+      return; // จบการทำงานตรงนี้ ไม่ต้องส่งไปหา FAQ
+    }
+
+    // 3. ระบบถาม-ตอบ FAQ (ทำงานเฉพาะข้อความตัวอักษรปกติ)
+    if (msg.type !== "text") return;
+    const userQuestion = msg.text;
 
     try {
       const faq = await findFaqAnswer(userQuestion);
-      const replyText = faq?.answer ?? "ขออภัยค่ะ ทีม HR จะติดต่อกลับไปโดยเร็วที่สุดค่ะ 🙏";
-
-      await client.replyMessage(replyToken, {
-        type: "text",
-        text: replyText,
-      });
+      
+      if (faq?.answer) {
+        // กรณีเจอคำตอบใน Google Sheet
+        await client.replyMessage(replyToken, {
+          type: "text",
+          text: faq.answer
+        });
+      } else {
+        // กรณีไม่เจอคำตอบ -> ส่งต่อให้ HR และเริ่มนับเวลา 1 ชม.
+        userCooldowns.set(userId, Date.now());
+        await client.replyMessage(replyToken, {
+          type: "text",
+          text: "ขออภัยค่ะ ทีม HR จะติดต่อกลับไปโดยเร็วที่สุดค่ะ 🙏"
+        });
+      }
     } catch (error) {
       console.error("Error in processing:", error);
     }
